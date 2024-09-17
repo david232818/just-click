@@ -6,22 +6,30 @@
 #include "ncurses_utils.h"
 #include "utils.h"
 
-#define BOX_INTERVAL 2		/* unit: second */
-#define BOX_HEIGHT 3
-#define BOX_WIDTH 3
-#define BOX_SCORE 10
+#define SCORE_LOC_Y (0)
+#define SCORE_LOC_X (COLS - 24)
+
+#define EXIT_MSG_LOC_Y (LINES / 2)
+#define EXIT_MSG_LOC_X (COLS / 2 - 16)
+
+#define BOX_INTERVAL (2)		/* unit: second */
+#define BOX_HEIGHT (3)
+#define BOX_WIDTH (3)
+#define BOX_SCORE (10)
+
+#define IS_READY_TO_SCORE(prev, curr) ((prev) == (curr))
+#define IS_TIME_FOR_NEWBOX(t, curr) ((t) == (curr))
 
 static unsigned int set_coor(unsigned int maxval);
-static unsigned int  get_score(MEVENT *mevt, int c, int y, int x);
+static unsigned int  get_score(int c, int y, int x);
 
 int main()
 {
     int c;
-    unsigned int y, x;
-    unsigned int cnt, score, prevscore;
-    time_t chkpt;
+    unsigned int boxcnt, boxloc_y, boxloc_x;
+    unsigned int score, prevscore;
+    time_t newbox_time;
     WINDOW *win;
-    MEVENT mevt;
     
     initscr();
     start_color();
@@ -34,10 +42,10 @@ int main()
     printf("\033[?1002h\n");
     refresh();
 
-    y = set_coor(LINES - BOX_HEIGHT - 1);
-    x = set_coor(COLS - BOX_WIDTH - 1);
+    boxloc_y = set_coor(LINES - BOX_HEIGHT - 1);
+    boxloc_x = set_coor(COLS - BOX_WIDTH - 1);
     
-    win = create_box(BOX_HEIGHT, BOX_WIDTH, y, x);
+    win = create_box(BOX_HEIGHT, BOX_WIDTH, boxloc_y, boxloc_x);
     if (win == NULL) {
 	nocbreak();
 	endwin();
@@ -46,36 +54,39 @@ int main()
 
     score = 0;
     prevscore = score;
-    PRINTSF_AT(MK_STYLE(1, A_ITALIC), 0, COLS - 24, "score: %d", score);
+    PRINTSF_AT(MK_STYLE(1, A_ITALIC), SCORE_LOC_Y, SCORE_LOC_X, \
+	       "score: %d", score);
 
-    cnt = 0;
-    chkpt = time(NULL) + BOX_INTERVAL;
-    while (cnt < 10) {
+    boxcnt = 0;
+    newbox_time = time(NULL) + BOX_INTERVAL;
+    while (boxcnt < 10) {
 	c = getch();
-	if (c != ERR && prevscore == score) {
-	    score += get_score(&mevt, c, y, x);
-	    PRINTSF_AT(MK_STYLE(1, A_ITALIC), 0, COLS - 24, "score: %d", score);
+	if (c != ERR && IS_READY_TO_SCORE(prevscore, score)) {
+	    score += get_score(c, boxloc_y, boxloc_x);
+	    PRINTSF_AT(MK_STYLE(1, A_ITALIC), SCORE_LOC_Y, SCORE_LOC_X, \
+		       "score: %d", score);
 	}
 
-	if (chkpt == time(NULL)) {
+	if (IS_TIME_FOR_NEWBOX(newbox_time, time(NULL))) {
 	    prevscore = score;
 
-	    y = set_coor(LINES - BOX_HEIGHT - 1);
-	    x = set_coor(COLS - BOX_WIDTH - 1);
+	    boxloc_y = set_coor(LINES - BOX_HEIGHT - 1);
+	    boxloc_x = set_coor(COLS - BOX_WIDTH - 1);
 
 	    destroy_win(win);
-	    win = create_box(BOX_HEIGHT, BOX_WIDTH, y, x);
-	    if (win == NULL) {
+	    win = create_box(BOX_HEIGHT, BOX_WIDTH, boxloc_y, boxloc_x);
+	    if (!win) {
 		nocbreak();
 		endwin();
 		return -1;
 	    }
-	    chkpt = time(NULL) + BOX_INTERVAL;
-	    cnt++;
+	    newbox_time = time(NULL) + BOX_INTERVAL;
+	    boxcnt++;
 	}
     }
 
-    PRINTSS_AT(NO_STYLE, LINES / 2, COLS / 2, "Press any key to exit..");
+    PRINTSS_AT(NO_STYLE, EXIT_MSG_LOC_Y, EXIT_MSG_LOC_X, \
+	       "Press any key to exit..");
     PRESS_ANY_KEY_TO_EXIT_NODELAY(c);
     destroy_win(win);
     endwin();
@@ -93,11 +104,13 @@ static unsigned int set_coor(unsigned int maxval)
     return randbytes % maxval;
 }
 
-static unsigned int get_score(MEVENT *mevt, int c, int y, int x)
+static unsigned int get_score(int c, int y, int x)
 {
-    if (is_left_button_clicked(mevt, c) == LEFT_BUTTON_CLICKED)
-	if (IS_IN_DOMAIN(mevt->y, y, y + BOX_HEIGHT) &&
-	    IS_IN_DOMAIN(mevt->x, x, x + BOX_WIDTH))
+    MEVENT mevt;
+    
+    if (is_left_button_clicked(&mevt, c) == LEFT_BUTTON_CLICKED)
+	if (IS_IN_DOMAIN(mevt.y, y, y + BOX_HEIGHT) &&
+	    IS_IN_DOMAIN(mevt.x, x, x + BOX_WIDTH))
 	    return BOX_SCORE;
     return 0;
 }
