@@ -1,6 +1,7 @@
 #ifndef __NCURSES_UTILS_H__
 #define __NCURSES_UTILS_H__
 
+#include <stdint.h>
 #include <ncurses.h>
 
 /* Make style for PRINTSF_AT macro function */
@@ -71,6 +72,6 @@ void destroy_win(WINDOW *win);
  * If you clicked left button of your mouse, it implies that the mouse is
  * input.
  */
-int is_left_button_clicked(MEVENT *mevt, int c);
+int64_t is_left_button_clicked(int c);
 
 #endif
