@@ -6,6 +6,7 @@
 #include "ncurses_utils.h"
 #include "utils.h"
 
+#define SCORE_PER_BOX (10)
 #define SCORE_LOC_Y (0)
 #define SCORE_LOC_X (COLS - 24)
 
@@ -21,7 +22,7 @@
 #define IS_TIME_FOR_NEWBOX(t, curr) ((t) == (curr))
 
 static unsigned int set_coor(unsigned int maxval);
-static unsigned int  get_score(int c, int y, int x);
+static unsigned int get_score(int c, int y, int x);
 
 int main()
 {
@@ -30,7 +31,7 @@ int main()
     unsigned int score, prevscore;
     time_t newbox_time;
     WINDOW *win;
-    
+
     initscr();
     start_color();
     init_pair(1, COLOR_RED, 0);
@@ -44,13 +45,9 @@ int main()
 
     boxloc_y = set_coor(LINES - BOX_HEIGHT - 1);
     boxloc_x = set_coor(COLS - BOX_WIDTH - 1);
-    
     win = create_box(BOX_HEIGHT, BOX_WIDTH, boxloc_y, boxloc_x);
-    if (win == NULL) {
-	nocbreak();
-	endwin();
-	return -1;
-    }
+    if (!win)
+	goto FAIL;
 
     score = 0;
     prevscore = score;
@@ -75,11 +72,9 @@ int main()
 
 	    destroy_win(win);
 	    win = create_box(BOX_HEIGHT, BOX_WIDTH, boxloc_y, boxloc_x);
-	    if (!win) {
-		nocbreak();
-		endwin();
-		return -1;
-	    }
+	    if (!win)
+		goto FAIL;
+
 	    newbox_time = time(NULL) + BOX_INTERVAL;
 	    boxcnt++;
 	}
@@ -88,9 +83,16 @@ int main()
     PRINTSS_AT(NO_STYLE, EXIT_MSG_LOC_Y, EXIT_MSG_LOC_X, \
 	       "Press any key to exit..");
     PRESS_ANY_KEY_TO_EXIT_NODELAY(c);
+
     destroy_win(win);
+    nocbreak();
     endwin();
     return 0;
+
+FAIL:
+    nocbreak();
+    endwin();
+    return -1;
 }
 
 static unsigned int set_coor(unsigned int maxval)
@@ -106,11 +108,16 @@ static unsigned int set_coor(unsigned int maxval)
 
 static unsigned int get_score(int c, int y, int x)
 {
-    MEVENT mevt;
+    int my, mx;
+    int64_t m_coor;
     
-    if (is_left_button_clicked(&mevt, c) == LEFT_BUTTON_CLICKED)
-	if (IS_IN_DOMAIN(mevt.y, y, y + BOX_HEIGHT) &&
-	    IS_IN_DOMAIN(mevt.x, x, x + BOX_WIDTH))
-	    return BOX_SCORE;
+    m_coor = is_left_button_clicked(c);
+    if (m_coor != NOT_CLICKED) {
+	my = m_coor >> 32;
+	mx = m_coor & 0xFFFFFFFF;
+	if (IS_IN_DOMAIN(my, y, y + BOX_HEIGHT) &&
+	    IS_IN_DOMAIN(mx, x, x + BOX_WIDTH))
+	    return SCORE_PER_BOX;
+    }
     return 0;
 }

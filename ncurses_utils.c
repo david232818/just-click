@@ -1,23 +1,25 @@
+#include <stdio.h>
+#include <stdint.h>
+#include <unistd.h>
 #include <ncurses.h>
 #include "ncurses_utils.h"
 
-int is_left_button_clicked(MEVENT *mevt, int c)
+int64_t is_left_button_clicked(int c)
 {
-    int res;
+    int64_t res;
+    MEVENT mevt = { 0, };
 
-    res = -1;
-    if (mevt == NULL)
-	return res;
-
-    res = NOT_CLICKED;
     switch (c) {
     case KEY_MOUSE:
-	if (getmouse(mevt) == OK)
-	    if (IS_LEFT_BUTTON_PRESSED(mevt->bstate))
-		res = LEFT_BUTTON_CLICKED;
+	getmouse(&mevt);
 	break;
     default:
+	res = NOT_CLICKED;
 	break;
+    }
+    if (IS_LEFT_BUTTON_PRESSED(mevt.bstate)) {
+	res = mevt.y;
+	res = (res << 32) | mevt.x;
     }
     return res;
 }
@@ -28,9 +30,9 @@ WINDOW *create_box(int h, int w, int sy, int sx)
     WINDOW *local_win;
 
     local_win = newwin(h, w, sy, sx);
-    if (local_win == NULL)
+    if (!local_win)
 	return NULL;
-    
+
     box(local_win, 0, 0);
     wrefresh(local_win);
     return local_win;
@@ -39,7 +41,7 @@ WINDOW *create_box(int h, int w, int sy, int sx)
 /* destroy_win: destory window */
 void destroy_win(WINDOW *win)
 {
-    if (win == NULL)
+    if (!win)
 	return ;
     
     wborder(win, ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ');
