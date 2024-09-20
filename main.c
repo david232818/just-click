@@ -108,16 +108,11 @@ static unsigned int set_coor(unsigned int maxval)
 
 static unsigned int get_score(int c, int y, int x)
 {
-    int my, mx;
-    int64_t m_coor;
-    
-    m_coor = is_left_button_clicked(c);
-    if (m_coor != NOT_CLICKED) {
-	my = m_coor >> 32;
-	mx = m_coor & 0xFFFFFFFF;
-	if (IS_IN_DOMAIN(my, y, y + BOX_HEIGHT) &&
-	    IS_IN_DOMAIN(mx, x, x + BOX_WIDTH))
+    MEVENT mevt;
+
+    if (is_left_button_clicked(&mevt, c) == BUTTON1_PRESSED)
+	if (IS_IN_DOMAIN(mevt.y, y, y + BOX_HEIGHT) &&
+	    IS_IN_DOMAIN(mevt.x, x, x + BOX_WIDTH))
 	    return SCORE_PER_BOX;
-    }
     return 0;
 }
