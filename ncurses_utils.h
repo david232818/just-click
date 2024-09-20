@@ -72,6 +72,6 @@ void destroy_win(WINDOW *win);
  * If you clicked left button of your mouse, it implies that the mouse is
  * input.
  */
-int64_t is_left_button_clicked(int c);
+mmask_t is_left_button_clicked(MEVENT *mevt, int c);
 
 #endif
