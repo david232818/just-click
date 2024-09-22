@@ -6,6 +6,12 @@
 #include "ncurses_utils.h"
 #include "utils.h"
 
+#define SCREEN_LINES_MIN (25)
+#define SCREEN_COLS_MIN (80)
+
+#define IS_SCREEN_TOO_SMALL(lines, minlines, cols, mincols) \
+    (((lines) <= (minlines)) && ((cols) <= (mincols)))
+
 #define SCORE_PER_BOX (10)
 #define SCORE_LOC_Y (0)
 #define SCORE_LOC_X (COLS - 24)
@@ -21,8 +27,8 @@
 #define IS_READY_TO_SCORE(prev, curr) ((prev) == (curr))
 #define IS_TIME_FOR_NEWBOX(t, curr) ((t) == (curr))
 
-static unsigned int set_coor(unsigned int maxval);
-static unsigned int get_score(int c, int y, int x);
+static unsigned int get_rand_under(unsigned int maxval);
+static unsigned int getscore(int c, int y, int x);
 
 int main()
 {
@@ -43,8 +49,15 @@ int main()
     printf("\033[?1002h\n");
     refresh();
 
-    boxloc_y = set_coor(LINES - BOX_HEIGHT - 1);
-    boxloc_x = set_coor(COLS - BOX_WIDTH - 1);
+    if (IS_SCREEN_TOO_SMALL(LINES, SCREEN_LINES_MIN, COLS, SCREEN_COLS_MIN)) {
+	PRINTSS_AT(MK_STYLE(1, A_ITALIC), EXIT_MSG_LOC_Y, EXIT_MSG_LOC_X, \
+		   "Screen Too Small!!");
+	PRESS_ANY_KEY_TO_EXIT_NODELAY(c);
+	goto OUT;
+    }
+
+    boxloc_y = get_rand_under(LINES - BOX_HEIGHT - 1);
+    boxloc_x = get_rand_under(COLS - BOX_WIDTH - 1);
     win = create_box(BOX_HEIGHT, BOX_WIDTH, boxloc_y, boxloc_x);
     if (!win)
 	goto FAIL;
@@ -59,7 +72,7 @@ int main()
     while (boxcnt < 10) {
 	c = getch();
 	if (c != ERR && IS_READY_TO_SCORE(prevscore, score)) {
-	    score += get_score(c, boxloc_y, boxloc_x);
+	    score += getscore(c, boxloc_y, boxloc_x);
 	    PRINTSF_AT(MK_STYLE(1, A_ITALIC), SCORE_LOC_Y, SCORE_LOC_X, \
 		       "score: %d", score);
 	}
@@ -67,8 +80,8 @@ int main()
 	if (IS_TIME_FOR_NEWBOX(newbox_time, time(NULL))) {
 	    prevscore = score;
 
-	    boxloc_y = set_coor(LINES - BOX_HEIGHT - 1);
-	    boxloc_x = set_coor(COLS - BOX_WIDTH - 1);
+	    boxloc_y = get_rand_under(LINES - BOX_HEIGHT - 1);
+	    boxloc_x = get_rand_under(COLS - BOX_WIDTH - 1);
 
 	    destroy_win(win);
 	    win = create_box(BOX_HEIGHT, BOX_WIDTH, boxloc_y, boxloc_x);
@@ -85,6 +98,8 @@ int main()
     PRESS_ANY_KEY_TO_EXIT_NODELAY(c);
 
     destroy_win(win);
+
+OUT:
     nocbreak();
     endwin();
     return 0;
@@ -95,7 +110,8 @@ FAIL:
     return -1;
 }
 
-static unsigned int set_coor(unsigned int maxval)
+/* get_rand_under: get random number under maxval */
+static unsigned int get_rand_under(unsigned int maxval)
 {
     unsigned int randbytes;
 
@@ -106,7 +122,7 @@ static unsigned int set_coor(unsigned int maxval)
     return randbytes % maxval;
 }
 
-static unsigned int get_score(int c, int y, int x)
+static unsigned int getscore(int c, int y, int x)
 {
     MEVENT mevt;
 
